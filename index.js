@@ -19,8 +19,6 @@ const Browsers = baileysNS.Browsers;
 const makeCacheableSignalKeyStore = baileysNS.makeCacheableSignalKeyStore;
 
 const AUTH_FOLDER = './auth_info';
-let metodoConexion = null;
-let numeroTelefono = null;
 let intentos = 0;
 let iniciando = false;
 let comandos = null;
@@ -33,11 +31,22 @@ app.listen({ port: CONFIG.PORT, host: '0.0.0.0' })
 
 const msgRetryCounterCache = new NodeCache({ stdTTL: 3600, checkperiod: 600 });
 
-function preguntarNumero() {
+// ⭐ FUNCIÓN PARA PEDIR NÚMERO EN CONSOLA
+function pedirNumero() {
     return new Promise(resolve => {
-        if (CONFIG.BOT_PHONE_NUMBER) return resolve(CONFIG.BOT_PHONE_NUMBER);
         const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-        rl.question('📱 Número: ', n => { rl.close(); resolve(n.replace(/\D/g, '')); });
+        console.log('\n╔══════════════════════════════════════╗');
+        console.log('║     🎤 ANUEL AA - CONFIGURACIÓN     ║');
+        console.log('╚══════════════════════════════════════╝');
+        rl.question('\n📱 Número a vincular (con código de país):\n> ', respuesta => {
+            rl.close();
+            const numero = respuesta.trim().replace(/\D/g, '');
+            if (!numero || numero.length < 8) {
+                console.log('❌ Número inválido. Intenta de nuevo.');
+                return resolve(pedirNumero());
+            }
+            resolve(numero);
+        });
     });
 }
 
@@ -49,9 +58,13 @@ async function iniciarBot() {
         console.log(`\n🎤 Iniciando ${CONFIG.BOT_NAME}...`);
         const { state, saveCreds } = await useMultiFileAuthState(AUTH_FOLDER);
         
+        let numeroTelefono = null;
+        
+        // ⭐ SI NO HAY SESIÓN, PREGUNTA EL NÚMERO
         if (!state.creds.registered) {
-            numeroTelefono = await preguntarNumero();
-            metodoConexion = 'codigo';
+            numeroTelefono = await pedirNumero();
+            console.log(`\n✅ Número: ${numeroTelefono}`);
+            console.log('⏳ Generando código de vinculación...\n');
         }
 
         let version;
@@ -90,12 +103,17 @@ async function iniciarBot() {
             
             if (connection === 'open') {
                 intentos = 0;
-                console.log(`\n✅ ${CONFIG.BOT_NAME} CONECTADO 🎤\n`);
+                console.log('\n╔══════════════════════════════════════╗');
+                console.log('║     ✅ ANUEL AA CONECTADO 🎤        ║');
+                console.log('╚══════════════════════════════════════╝\n');
             }
 
             if (connection === 'close') {
                 const codigoError = new Boom(lastDisconnect?.error)?.output?.statusCode || 0;
-                if (codigoError === DisconnectReason.loggedOut) return;
+                if (codigoError === DisconnectReason.loggedOut) {
+                    console.log('🔒 Sesión cerrada. Reinicia el bot.');
+                    return;
+                }
                 intentos++;
                 setTimeout(() => { iniciando = false; iniciarBot(); }, Math.min(5000 * intentos, 60000));
             }
@@ -107,13 +125,23 @@ async function iniciarBot() {
             handleMessage(sock, m, CONFIG.PREFIX, Array.from(comandos.values()));
         });
 
-        if (!state.creds.registered && metodoConexion === 'codigo') {
+        // ⭐ GENERAR CÓDIGO DE 8 DÍGITOS
+        if (!state.creds.registered && numeroTelefono) {
             setTimeout(async () => {
                 try {
                     const codigo = await sock.requestPairingCode(numeroTelefono);
-                    console.log(`\n🔐 CÓDIGO: ${codigo.match(/.{1,4}/g)?.join('-')}\n`);
-                } catch (e) { console.error('Error:', e.message); }
-            }, 4000);
+                    const formato = codigo.match(/.{1,4}/g)?.join('-') || codigo;
+                    console.log('╔══════════════════════════════════════╗');
+                    console.log('║   🔑 CÓDIGO DE VINCULACIÓN          ║');
+                    console.log(`║   ➤ ${formato} ◄`);
+                    console.log('║                                      ║');
+                    console.log('║   WhatsApp > Dispositivos vinculados ║');
+                    console.log('║   > Vincular con número              ║');
+                    console.log('╚══════════════════════════════════════╝\n');
+                } catch (e) {
+                    console.error('❌ Error generando código:', e.message);
+                }
+            }, 3000);
         }
 
         iniciando = false;
