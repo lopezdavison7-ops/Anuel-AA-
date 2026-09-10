@@ -1,0 +1,20 @@
+{
+  "name": "anuel-aa-bot",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "index.js",
+  "description": "ANUEL AA - Real Hasta La Muerte 💯 | Bot de WhatsApp",
+  "scripts": {
+    "start": "node --env-file=.env index.js"
+  },
+  "dependencies": {
+    "@hapi/boom": "^10.0.1",
+    "@whiskeysockets/baileys": "latest",
+    "axios": "^1.19.0",
+    "dotenv": "^17.4.2",
+    "fastify": "^4.28.1",
+    "node-cache": "^5.1.2",
+    "pino": "^9.3.2",
+    "qrcode": "^1.5.4"
+  }
+}
